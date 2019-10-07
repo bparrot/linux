@@ -1601,6 +1601,12 @@
 			reg = <0x20 0x28>;
 			#clock-cells = <2>;
 		};
+
+		vpe_clkctrl: vpe-clkctrl@60 {
+			compatible = "ti,clkctrl";
+			reg = <0x60 0xc>;
+			#clock-cells = <2>;
+		};
 	};
 
 };
