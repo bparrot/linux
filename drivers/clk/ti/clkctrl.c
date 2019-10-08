@@ -152,9 +152,18 @@ static int _omap4_clkctrl_clk_enable(struct clk_hw *hw)
 		return 0;
 
 	val = ti_clk_ll_ops->clk_readl(&clk->enable_reg);
+	if (strncmp(clk_hw_get_name(hw), "vpe", 3) == 0 ||
+		strncmp(clk_hw_get_name(hw), "rtc", 3) == 0)
+		pr_err("%s: %s: offset 0x%04x: read val: 0x%08x\n",
+			clk_hw_get_name(hw), clk->clkdm_name, clk->enable_reg.offset, val);
 
 	val &= ~OMAP4_MODULEMODE_MASK;
 	val |= clk->enable_bit;
+
+	if (strncmp(clk_hw_get_name(hw), "vpe", 3) == 0 ||
+		strncmp(clk_hw_get_name(hw), "rtc", 3) == 0)
+		pr_err("%s: %s: offset 0x%04x: write val: 0x%08x\n",
+			clk_hw_get_name(hw), clk->clkdm_name, clk->enable_reg.offset, val);
 
 	ti_clk_ll_ops->clk_writel(val, &clk->enable_reg);
 
@@ -468,10 +477,13 @@ static void __init _ti_omap4_clkctrl_setup(struct device_node *node)
 #endif
 #ifdef CONFIG_SOC_DRA7XX
 	if (of_machine_is_compatible("ti,dra7")) {
-		if (ti_clk_get_features()->flags & TI_CLK_CLKCTRL_COMPAT)
+		if (ti_clk_get_features()->flags & TI_CLK_CLKCTRL_COMPAT) {
+			pr_err("*** Using compat data\n");
 			data = dra7_clkctrl_compat_data;
-		else
+		} else {
+			pr_err("*** Using clkctrl data\n");
 			data = dra7_clkctrl_data;
+		}
 	}
 
 	if (of_machine_is_compatible("ti,dra72"))
@@ -526,6 +538,8 @@ static void __init _ti_omap4_clkctrl_setup(struct device_node *node)
 		pr_err("%pOF not found from clkctrl data.\n", node);
 		return;
 	}
+
+	pr_err("%pOF: data->addr: 0x%08x.\n", node, data->addr);
 
 	provider = kzalloc(sizeof(*provider), GFP_KERNEL);
 	if (!provider)

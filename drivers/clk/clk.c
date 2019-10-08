@@ -1016,10 +1016,10 @@ static int clk_core_enable(struct clk_core *core)
 
 	if (core->enable_count == 0) {
 		ret = clk_core_enable(core->parent);
-
-		if (ret)
+		if (ret) {
+			dev_err(core->dev, "%s: clk_core_enable(core->parent) %d clock: %s\n", __func__, ret, core->parent->name);
 			return ret;
-
+		}
 		trace_clk_enable_rcuidle(core);
 
 		if (core->ops->enable)
@@ -1028,6 +1028,7 @@ static int clk_core_enable(struct clk_core *core)
 		trace_clk_enable_complete_rcuidle(core);
 
 		if (ret) {
+			dev_err(core->dev, "%s: core->ops->enable(core->hw) %d clock: %s\n", __func__, ret, core->name);
 			clk_core_disable(core->parent);
 			return ret;
 		}

@@ -377,8 +377,10 @@ static int sysc_enable_main_clocks(struct sysc *ddata)
 			continue;
 
 		error = clk_enable(clock);
-		if (error)
+		if (error) {
+			dev_err(ddata->dev, "clk_enable() %d\n", error);
 			goto err_disable;
+		}
 	}
 
 	return 0;
@@ -850,7 +852,7 @@ static void sysc_show_registers(struct sysc *ddata)
 	bufp += sysc_show_rev(bufp, ddata);
 	bufp += sysc_show_name(bufp, ddata);
 
-	dev_dbg(ddata->dev, "%llx:%x%s\n",
+	dev_err(ddata->dev, "%llx:%x%s\n",
 		ddata->module_pa, ddata->module_size,
 		buf);
 }
@@ -1494,8 +1496,16 @@ static int sysc_clockdomain_init(struct sysc *ddata)
 	case 0:
 		return 0;
 	}
-
+//	if (!strncmp(ddata->name, "vpe", 3)) {
+	dev_err(ddata->dev, "%s: module pa 0x%llx size: %d, off1: 0x%04x, off2: 0x%04x, off3: 0x%04x\n",
+		__func__, ddata->module_pa, ddata->module_size,
+		ddata->offsets[0], ddata->offsets[1], ddata->offsets[2]);
+//	}
 	error = pdata->init_clockdomain(ddata->dev, fck, ick, &ddata->cookie);
+//	if (!strncmp(ddata->name, "vpe", 3)) {
+//		dev_err(ddata->dev, "%s: %s: pdata->init_clockdomain(): %d\n",
+//			__func__, ddata->name, error);
+//	}
 	if (!error || error == -ENODEV)
 		return 0;
 
@@ -1618,16 +1628,20 @@ static int sysc_init_module(struct sysc *ddata)
 	bool manage_clocks = true;
 
 	error = sysc_rstctrl_reset_deassert(ddata, false);
-	if (error)
+	if (error) {
+		dev_err(ddata->dev, "sysc_rstctrl_reset_deassert() %d\n", error);
 		return error;
+	}
 
 	if (ddata->cfg.quirks &
 	    (SYSC_QUIRK_NO_IDLE | SYSC_QUIRK_NO_IDLE_ON_INIT))
 		manage_clocks = false;
 
 	error = sysc_clockdomain_init(ddata);
-	if (error)
+	if (error) {
+		dev_err(ddata->dev, "sysc_clockdomain_init() %d\n", error);
 		return error;
+	}
 
 	sysc_clkdm_deny_idle(ddata);
 
@@ -1636,17 +1650,23 @@ static int sysc_init_module(struct sysc *ddata)
 	 * the related clocks.
 	 */
 	error = sysc_enable_opt_clocks(ddata);
-	if (error)
+	if (error) {
+		dev_err(ddata->dev, "sysc_enable_opt_clocks() %d\n", error);
 		return error;
+	}
 
 	error = sysc_enable_main_clocks(ddata);
-	if (error)
+	if (error) {
+		dev_err(ddata->dev, "sysc_enable_main_clocks() %d\n", error);
 		goto err_opt_clocks;
+	}
 
 	if (!(ddata->cfg.quirks & SYSC_QUIRK_NO_RESET_ON_INIT)) {
 		error = sysc_rstctrl_reset_deassert(ddata, true);
-		if (error)
+		if (error) {
+			dev_err(ddata->dev, "sysc_rstctrl_reset_deassert() %d\n", error);
 			goto err_main_clocks;
+		}
 	}
 
 	ddata->revision = sysc_read_revision(ddata);
@@ -1655,19 +1675,25 @@ static int sysc_init_module(struct sysc *ddata)
 
 	if (ddata->legacy_mode) {
 		error = sysc_legacy_init(ddata);
-		if (error)
+		if (error) {
+			dev_err(ddata->dev, "sysc_legacy_init() %d\n", error);
 			goto err_main_clocks;
+		}
 	}
 
 	if (!ddata->legacy_mode) {
 		error = sysc_enable_module(ddata->dev);
-		if (error)
+		if (error) {
+			dev_err(ddata->dev, "sysc_enable_module() %d\n", error);
 			goto err_main_clocks;
+		}
 	}
 
 	error = sysc_reset(ddata);
-	if (error)
+	if (error) {
+		dev_err(ddata->dev, "sysc_reset() %d\n", error);
 		dev_err(ddata->dev, "Reset failed with %d\n", error);
+	}
 
 	if (!ddata->legacy_mode && manage_clocks)
 		sysc_disable_module(ddata->dev);
@@ -2439,12 +2465,17 @@ static int sysc_probe(struct platform_device *pdev)
 		goto unprepare;
 
 	error = sysc_init_module(ddata);
-	if (error)
+	if (error) {
+		dev_err(ddata->dev, "failed sysc_init_module %llx:%x\n",
+			ddata->module_pa, ddata->module_size);
 		goto unprepare;
+	}
 
 	pm_runtime_enable(ddata->dev);
 	error = pm_runtime_get_sync(ddata->dev);
 	if (error < 0) {
+		dev_err(ddata->dev, "failed rpm_get %llx:%x\n",
+			ddata->module_pa, ddata->module_size);
 		pm_runtime_put_noidle(ddata->dev);
 		pm_runtime_disable(ddata->dev);
 		goto unprepare;

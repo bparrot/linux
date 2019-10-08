@@ -466,9 +466,15 @@ static struct clockdomain *ti_sysc_find_one_clockdomain(struct clk *clk)
 	struct clockdomain *clkdm = NULL;
 	struct clk_hw_omap *hwclk;
 
+//	if (!clk)
+//		pr_err("ti_sysc_find_one_clockdomain(NULL)\n");
+
 	hwclk = to_clk_hw_omap(__clk_get_hw(clk));
 	if (hwclk && hwclk->clkdm_name)
+//		pr_err("looking up hwclk->clkdm_name: %s\n", hwclk->clkdm_name);
 		clkdm = clkdm_lookup(hwclk->clkdm_name);
+//		if (!clkdm)
+//			pr_err("hwclk->clkdm_name: %s not found\n", hwclk->clkdm_name);
 
 	return clkdm;
 }
